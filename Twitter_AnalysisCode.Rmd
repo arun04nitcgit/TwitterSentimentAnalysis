@@ -1,0 +1,127 @@
+---
+title: "Twitter_LDAModel"
+author: "Arun"
+date: "May 5, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(twitteR)
+library(NLP)
+library(tm)
+library(RColorBrewer)
+library(wordcloud)
+library(topicmodels)
+library(SnowballC)
+library(httr)
+
+```
+
+```{r}
+# api_key <- "xxxxxxxxxxxxxxxxxxxxxxxxx"
+# api_secret <- "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# access_token <- "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# access_token_secret <- "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+
+
+setup_twitter_oauth(api_key,api_secret,access_token,access_token_secret)
+
+```
+
+```{r}
+# Grab latest tweets
+tweet_text <- function(x) x$getText()
+# Submit a search query (terms separated by "+") and get a return
+# set of data (corpus).
+tweet_corpus <- function(search, n = 5000, ...) {
+  payload <- searchTwitter(search, n = n, ...)
+  sapply(payload, tweet_text)
+}
+
+# Search for some key terms, try to grab a lot if you want. Twitter will 
+# limit you as it sees fit (can find). Also has spatial options.
+# Try these Sacramento coordinates: '38.630404,-121.293535,50mi'
+
+tweets <- tweet_corpus('#realDonaldTrump', n = 500, lang = 'en')
+```
+
+```{r}
+# Convert to basic ASCII text to avoid silly characters
+tweets <- iconv(tweets, to = "ASCII", sub = " ")  
+tweets <- tolower(tweets)  # Make everything consistently lower case
+# Remove the "RT" (retweet) so duplicates are duplicates
+tweets <- gsub("rt", " ", tweets)  
+tweets <- gsub("@\\w+", " ", tweets)  # Remove user names (all proper names if you're wise!)
+tweets <- gsub("http.+ |http.+$", " ", tweets)  # Remove links
+tweets <- gsub("[[:punct:]]", " ", tweets)  # Remove punctuation
+tweets <- gsub("[ |\t]{2,}", " ", tweets)  # Remove tabs
+tweets <- gsub("amp", " ", tweets)  # "&" is "&amp" in HTML, so after punctuation removed ...
+tweets <- gsub("^ ", "", tweets)  # Leading blanks
+tweets <- gsub(" $", "", tweets)  # Lagging blanks
+tweets <- gsub(" +", " ", tweets) # General spaces (should just do all whitespaces no?)
+tweets <- unique(tweets)  # Now get rid of duplicates!
+
+corpus <- Corpus(VectorSource(tweets))  # Create corpus object
+
+# Remove English stop words. This could be greatly expanded!
+# Don't forget the mc.cores thing
+corpus <- tm_map(corpus, removeWords, stopwords("en") )  #mc.cores=1
+
+# Remove numbers. This could have been done earlier, of course.
+corpus <- tm_map(corpus, removeNumbers ) #mc.cores=1
+
+# Stem the words. Google if you don't understand
+corpus <- tm_map(corpus, stemDocument ) #mc.cores=1
+
+# Remove the stems associated with our search terms!
+corpus <- tm_map(corpus, removeWords, c("energi", "electr")) #mc.cores=1
+```
+
+```{r}
+pal <- brewer.pal(8, "Dark2")
+wordcloud(corpus, min.freq=2, max.words = 150, random.order = TRUE, col = pal)
+```
+```{r}
+# Get the lengths and make sure we only create a DTM for tweets with
+# some actual content
+doc.lengths <- rowSums(as.matrix(DocumentTermMatrix(corpus)))
+dtm <- DocumentTermMatrix(corpus[doc.lengths > 0])
+# model <- LDA(dtm, 10)  # Go ahead and test a simple model if you want
+
+
+
+# Now for some topics
+SEED = sample(1:1000000, 1)  # Pick a random seed for replication
+k = 10  # Let's start with 10 topics
+
+# This might take a minute!
+models <- list(
+  CTM       = CTM(dtm, k = k, control = list(seed = SEED, var = list(tol = 10^-4), em = list(tol = 10^-3))),
+  VEM       = LDA(dtm, k = k, control = list(seed = SEED)),
+  VEM_Fixed = LDA(dtm, k = k, control = list(estimate.alpha = FALSE, seed = SEED)),
+  Gibbs     = LDA(dtm, k = k, method = "Gibbs", control = list(seed = SEED, burnin = 1000,
+                                                               thin = 100,    iter = 1000))
+)
+
+
+
+# There you have it. Models now holds 4 topics. See the topicmodels API documentation for details
+
+# Top 10 terms of each topic for each model
+# Do you see any themes you can label to these "topics" (lists of words)?
+lapply(models, terms, 10)
+```
+
