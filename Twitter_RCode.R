@@ -12,6 +12,7 @@ library("twitteR")
 library("syuzhet")
 library("tidytext")
 
+#Twitter API
 # api_key <- "xxxxxxxxxxxxxxxxxxxxxxxxx"
 # api_secret <- "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # access_token <- "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
