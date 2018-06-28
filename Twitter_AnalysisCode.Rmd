@@ -39,7 +39,6 @@ setup_twitter_oauth(api_key,api_secret,access_token,access_token_secret)
 
 ```
 
-
 ```{r}
 # Grab latest tweets
 tweet_text <- function(x) x$getText()
@@ -49,6 +48,7 @@ tweet_corpus <- function(search, n = 5000, ...) {
   payload <- searchTwitter(search, n = n, ...)
   sapply(payload, tweet_text)
 }
+
 
 # Search for some key terms, try to grab a lot if you want. Twitter will 
 # limit you as it sees fit (can find). Also has spatial options.
